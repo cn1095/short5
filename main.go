@@ -461,7 +461,7 @@ func (hs *HybridStorage) LoadStats() (Data, error) {
 // 全局存储实例  
 var storage Storage
 
-// 同步本地数据到Redis（双向智能同步策略）  
+// 同步本地数据到Redis（双向智能同步策略 + 同步后统计更新）  
 func syncLocalToRedis() {  
     if !redisEnabled {  
         return  
@@ -596,6 +596,10 @@ func syncLocalToRedis() {
     }  
         
     log.Printf("数据同步完成: 同步 %d 条，跳过 %d 条，删除 %d 个文件", syncCount, skipCount, deleteCount)  
+      
+    // 同步完成后重新统计并更新total_rules  
+    log.Println("开始重新统计并更新total_rules...")  
+    updateTotalRulesAfterSync()  
 }
   
 // 定期检查Redis连接并重连  
@@ -983,24 +987,90 @@ func apiHandler(w http.ResponseWriter, r *http.Request, dataDir string) {
     w.WriteHeader(http.StatusOK)  
     json.NewEncoder(w).Encode(response)  
 }
+// 修改后的统计数据获取函数 - 优先Redis  
+func loadStatsWithPriority() (Data, error) {  
+    if redisEnabled {  
+        // 优先从Redis获取统计数据  
+        redisStorage := NewRedisStorage(redisPrefix)  
+        stats, err := redisStorage.LoadStats()  
+        if err == nil {  
+            log.Printf("从Redis获取统计数据成功: total_rules=%d, total_visits=%d",   
+                stats.TotalRules, stats.TotalVisits)  
+            return stats, nil  
+        } else {  
+            log.Printf("从Redis获取统计数据失败: %v，回退到本地文件", err)  
+        }  
+    }  
+      
+    // Redis不可用或失败时，使用本地文件  
+    fileStorage := NewFileStorage(dataDir)  
+    stats, err := fileStorage.LoadStats()  
+    if err != nil {  
+        log.Printf("从本地文件获取统计数据失败: %v", err)  
+        return Data{}, err  
+    }  
+      
+    log.Printf("从本地文件获取统计数据: total_rules=%d, total_visits=%d",   
+        stats.TotalRules, stats.TotalVisits)  
+    return stats, nil  
+}
+// 同步完成后重新统计并更新total_rules  
+func updateTotalRulesAfterSync() {  
+    if !redisEnabled {  
+        return  
+    }  
+      
+    // 从Redis获取所有规则数量  
+    redisStorage := NewRedisStorage(redisPrefix)  
+    rules, err := redisStorage.ListRules()  
+    if err != nil {  
+        log.Printf("获取Redis规则列表失败: %v", err)  
+        return  
+    }  
+      
+    actualTotalRules := len(rules)  
+    log.Printf("Redis中实际规则数量: %d", actualTotalRules)  
+      
+    // 获取当前统计数据  
+    currentStats, err := loadStatsWithPriority()  
+    if err != nil {  
+        log.Printf("获取当前统计数据失败: %v", err)  
+        return  
+    }  
+      
+    // 更新total_rules  
+    if currentStats.TotalRules != actualTotalRules {  
+        currentStats.TotalRules = actualTotalRules  
+        currentStats.LastRuleUpdate = time.Now().In(time.FixedZone("CST", 8*60*60)).Format("2006-01-02")  
+          
+        // 同时更新Redis和本地文件  
+        fileStorage := NewFileStorage(dataDir)  
+          
+        // 保存到Redis  
+        if err := redisStorage.SaveStats(currentStats); err != nil {  
+            log.Printf("更新Redis统计数据失败: %v", err)  
+        } else {  
+            log.Printf("Redis total_rules已更新为: %d", actualTotalRules)  
+        }  
+          
+        // 保存到本地文件  
+        if err := fileStorage.SaveStats(currentStats); err != nil {  
+            log.Printf("更新本地统计数据失败: %v", err)  
+        } else {  
+            log.Printf("本地文件 total_rules已更新为: %d", actualTotalRules)  
+        }  
+    } else {  
+        log.Printf("total_rules已是最新值: %d，无需更新", actualTotalRules)  
+    }  
+}
+
 // 默认首页HTML文件
 func indexHandler(w http.ResponseWriter, r *http.Request) {
-    // 读取short_data.json统计数据文件
-    dataFilePath := filepath.Join(dataDir, "short_data.json")
-    initializeData(dataFilePath)
-    file, err := os.Open(dataFilePath)
-    if err != nil {
-        http.Error(w, fmt.Sprintf("无法打开统计数据文件: %v", err), http.StatusInternalServerError)
-        return
-    }
-    defer file.Close()
-
-    // 解析数据
-    var data Data
-    decoder := json.NewDecoder(file)
-    if err := decoder.Decode(&data); err != nil {
-        http.Error(w, fmt.Sprintf("无法解析统计数据文件: %v", err), http.StatusInternalServerError)
-        return
+    // 使用新的优先Redis的统计获取逻辑  
+    data, err := loadStatsWithPriority()  
+    if err != nil {  
+        http.Error(w, fmt.Sprintf("无法获取统计数据: %v", err), http.StatusInternalServerError)  
+        return  
     }
 
     // 读取网页文件

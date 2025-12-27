@@ -2077,7 +2077,7 @@ func renderAdminPage(w http.ResponseWriter, r *http.Request, data []ApiRequest) 
 .button-group {  
 	display: flex;  
 	gap: 10px;  
-	margin: 15px 0;  
+	margin: 8px 0;  
 	flex-wrap: wrap;  
 	align-items: center;  
 }  
@@ -2696,12 +2696,14 @@ var multiSelectMode = false;
 // 切换多选模式  
 function toggleMultiSelect() {  
 	multiSelectMode = !multiSelectMode;  
+	var table = document.getElementById("dataTable");
 	var hiddenButtons = document.getElementById("hiddenButtons");  
 	var multiSelectText = document.getElementById("multiSelectText");  
 	var checkboxes = document.querySelectorAll(".row-checkbox");  
 	var selectAllCheckbox = document.getElementById("selectAllCheckbox");  
 	  
 	if (multiSelectMode) {  
+		table.classList.add("multi-select-mode");  
 		hiddenButtons.classList.add("show");  
 		multiSelectText.textContent = "关闭多选";  
 		// 显示所有复选框  
@@ -2709,7 +2711,8 @@ function toggleMultiSelect() {
 			checkbox.style.display = "block";  
 		});  
 		selectAllCheckbox.style.display = "block";  
-	} else {  
+	} else { 
+		table.classList.remove("multi-select-mode");
 		hiddenButtons.classList.remove("show");  
 		multiSelectText.textContent = "启用多选";  
 		// 隐藏所有复选框并取消选中  

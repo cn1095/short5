@@ -391,19 +391,18 @@ func (hs *HybridStorage) SaveRule(code string, req ApiRequest) error {
     return nil  
 }
 
-func (hs *HybridStorage) LoadRule(code string) (ApiRequest, bool, error) {
-	if redisEnabled {
-		// Redis可用时，从Redis读取
-		req, found, err := hs.redis.LoadRule(code)
-		if err != nil {
-			log.Printf("Redis读取失败: %v，回退到本地short_data文件存储", err)
-			// Redis读取失败时，回退到本地文件
-			return hs.file.LoadRule(code)
-		}
-		return req, found, nil
-	}
-	// Redis不可用时，从本地文件读取
-	return hs.file.LoadRule(code)
+func (hs *HybridStorage) LoadRule(code string) (ApiRequest, bool, error) {  
+    // 优先从本地文件读取  
+    req, found, err := hs.file.LoadRule(code)  
+    if err != nil {  
+        log.Printf("本地文件读取失败: %v，回退到Redis", err)  
+        // 本地失败时，回退到Redis  
+        if redisEnabled {  
+            return hs.redis.LoadRule(code)  
+        }  
+        return req, found, err  
+    }  
+    return req, found, nil  
 }
 
 func (hs *HybridStorage) DeleteRule(code string) error {  
@@ -474,19 +473,18 @@ func (hs *HybridStorage) SaveStats(data Data) error {
 	return hs.file.SaveStats(data)
 }
 
-func (hs *HybridStorage) LoadStats() (Data, error) {
-	if redisEnabled {
-		// Redis可用时，从Redis读取
-		stats, err := hs.redis.LoadStats()
-		if err != nil {
-			log.Printf("Redis读取统计数据失败: %v，回退到本地short_data文件存储", err)
-			// Redis读取失败时，回退到本地文件
-			return hs.file.LoadStats()
-		}
-		return stats, nil
-	}
-	// Redis不可用时，从本地文件读取
-	return hs.file.LoadStats()
+func (hs *HybridStorage) LoadStats() (Data, error) {  
+    // 优先从本地文件读取  
+    stats, err := hs.file.LoadStats()  
+    if err != nil {  
+        log.Printf("本地统计数据读取失败: %v，回退到Redis", err)  
+        // 本地失败时，回退到Redis  
+        if redisEnabled {  
+            return hs.redis.LoadStats()  
+        }  
+        return stats, err  
+    }  
+    return stats, nil  
 }
 
 // 全局存储实例
@@ -1030,30 +1028,29 @@ func apiHandler(w http.ResponseWriter, r *http.Request, dataDir string) {
 	json.NewEncoder(w).Encode(response)
 }
 
-// 修改后的统计数据获取函数 - 优先Redis
-func loadStatsWithPriority() (Data, error) {
-	if redisEnabled {
-		// 优先从Redis获取统计数据
-		redisStorage := NewRedisStorage(redisPrefix)
-		stats, err := redisStorage.LoadStats()
-		if err == nil {
-			// log.Printf("从Redis获取统计数据成功: 后缀已使用=%d, 总转址数=%d", stats.TotalRules, stats.TotalVisits)
-			return stats, nil
-		} else {
-			log.Printf("从Redis获取统计数据失败: %v，回退到本地文件", err)
-		}
-	}
-
-	// Redis不可用或失败时，使用本地文件
-	fileStorage := NewFileStorage(dataDir)
-	stats, err := fileStorage.LoadStats()
-	if err != nil {
-		log.Printf("从本地文件获取统计数据失败: %v", err)
-		return Data{}, err
-	}
-
-	// log.Printf("从本地文件获取统计数据: 后缀已使用=%d, 总转址数=%d", stats.TotalRules, stats.TotalVisits)
-	return stats, nil
+// 统计数据获取函数
+func loadStatsWithPriority() (Data, error) {  
+    // 优先从本地文件获取统计数据  
+    fileStorage := NewFileStorage(dataDir)  
+    stats, err := fileStorage.LoadStats()  
+    if err == nil {  
+        return stats, nil  
+    } else {  
+        log.Printf("从本地文件获取统计数据失败: %v，回退到Redis", err)  
+    }  
+  
+    // 本地不可用或失败时，使用Redis  
+    if redisEnabled {  
+        redisStorage := NewRedisStorage(redisPrefix)  
+        stats, err := redisStorage.LoadStats()  
+        if err == nil {  
+            return stats, nil  
+        } else {  
+            log.Printf("从Redis获取统计数据失败: %v", err)  
+        }  
+    }  
+  
+    return Data{}, err  
 }
 
 // 同步完成后重新统计并更新total_rules

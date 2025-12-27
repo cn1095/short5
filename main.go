@@ -1843,7 +1843,8 @@ func renderAdminPage(w http.ResponseWriter, r *http.Request, data []ApiRequest) 
     			background-color: #fff;  
     			box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);  
     			border-radius: 8px;  
-    			overflow-x: auto;  
+    			overflow-x: auto;
+				max-width: 100vw; /* 防止超出视窗宽度 */
 			}
 			input[type="text"], textarea {
 				padding: 10px;
@@ -1942,7 +1943,7 @@ func renderAdminPage(w http.ResponseWriter, r *http.Request, data []ApiRequest) 
 					min-width: fit-content;
     			}  
     			table {  
-        			min-width: 800px;  
+        			min-width: 900px;  
         			font-size: 14px;  
     			}  
     			th, td {  
@@ -2234,6 +2235,21 @@ func renderAdminPage(w http.ResponseWriter, r *http.Request, data []ApiRequest) 
 .hidden-buttons.show {  
 	display: flex;  
 }
+/* 复选框列样式 */  
+th:first-child,  
+td:first-child {  
+    width: 50px;  
+    min-width: 50px;  
+    max-width: 50px;  
+    text-align: center;  
+}  
+  
+/* 调整长链接列的宽度 */  
+td:nth-child(2) {    
+    width: 280px;    
+    max-width: 280px;    
+    min-width: 200px; /* 确保有最小宽度 */  
+}
 		</style>
 		<script>
 			function searchTable() {
@@ -2307,8 +2323,14 @@ func renderAdminPage(w http.ResponseWriter, r *http.Request, data []ApiRequest) 
 				document.getElementById("currentPage").innerText = " 当前页: " + currentPage + " / ";
 				document.getElementById("totalPages").innerText = " 总页数: " + Math.ceil(rows.length / pageSize);
 				
-				// 重新初始化长链接展开功能  
-    			setTimeout(initLongUrlToggle, 100);
+				// 重新初始化长链接展开功能    
+    			setTimeout(function() {  
+        			initLongUrlToggle();  
+        			// 如果在多选模式，也要更新复选框状态  
+        			if (multiSelectMode) {  
+            			updateDeleteButton();  
+        			}  
+    			}, 100);
 			}
 
 			function isTextTruncated(element) {  
@@ -2326,7 +2348,7 @@ func renderAdminPage(w http.ResponseWriter, r *http.Request, data []ApiRequest) 
 			}  
   
 			function initLongUrlToggle() {  
-    			var longUrlCells = document.querySelectorAll('td:nth-child(1)');  
+    			var longUrlCells = document.querySelectorAll('td:nth-child(2)');  
     			longUrlCells.forEach(function(cell) {  
         			// 检查文本是否被截断  
         			if (isTextTruncated(cell)) {  

@@ -2238,12 +2238,18 @@ func renderAdminPage(w http.ResponseWriter, r *http.Request, data []ApiRequest) 
 /* 复选框列样式 */  
 th:first-child,  
 td:first-child {  
-    width: 50px;  
-    min-width: 50px;  
-    max-width: 50px;  
+    width: 50px !important;  
+    min-width: 50px !important;  
+    max-width: 50px !important;  
     text-align: center;  
+    padding: 8px !important;  
+    display: none; /* 默认隐藏整个列 */  
 }  
-  
+/* 多选模式下显示复选框列 */  
+.multi-select-mode th:first-child,  
+.multi-select-mode td:first-child {  
+    display: table-cell; /* 多选模式下显示 */  
+}  
 /* 调整长链接列的宽度 */  
 td:nth-child(2) {    
     width: 280px;    
@@ -2705,7 +2711,7 @@ function toggleMultiSelect() {
 		selectAllCheckbox.style.display = "block";  
 	} else {  
 		hiddenButtons.classList.remove("show");  
-		multiSelectText.textContent = "开启多选";  
+		multiSelectText.textContent = "启用多选";  
 		// 隐藏所有复选框并取消选中  
 		checkboxes.forEach(function(checkbox) {  
 			checkbox.style.display = "none";  
@@ -2889,6 +2895,18 @@ window.onload = function() {
 		<h2>管理页面</h2>
 		<div class="container">
 			<input type="text" id="searchInput" onkeyup="searchTable()" placeholder="搜索关键词...">
+			<!-- 按钮组 -->  
+			<div class="button-group">  
+				<button class="vue-btn vue-btn-primary" onclick="toggleMultiSelect()">  
+					<span id="multiSelectText">多选</span>  
+				</button>  
+				<button class="vue-btn vue-btn-danger" onclick="deleteExpired()">删除过期</button>  
+				<div id="hiddenButtons" class="hidden-buttons">  
+					<!-- <button class="vue-btn vue-btn-success" onclick="selectAll()">全选</button> --> 
+					<!-- <button class="vue-btn vue-btn-warning" onclick="deselectAll()">取消全选</button> --> 
+					<button id="deleteSelectedBtn" class="vue-btn vue-btn-danger" onclick="deleteSelected()" disabled>删除选中</button>  
+				</div>  
+			</div>
 			<table id="dataTable">
 				<thead>
 					<tr>
@@ -2943,18 +2961,6 @@ window.onload = function() {
 					{{end}}
 				</tbody>
 			</table>
-			<!-- 按钮组 -->  
-			<div class="button-group">  
-				<button class="vue-btn vue-btn-primary" onclick="toggleMultiSelect()">  
-					<span id="multiSelectText">启用多选</span>  
-				</button>  
-				<button class="vue-btn vue-btn-danger" onclick="deleteExpired()">删除过期</button>  
-				<div id="hiddenButtons" class="hidden-buttons">  
-					<button class="vue-btn vue-btn-success" onclick="selectAll()">全选</button>  
-					<button class="vue-btn vue-btn-warning" onclick="deselectAll()">取消全选</button>  
-					<button id="deleteSelectedBtn" class="vue-btn vue-btn-danger" onclick="deleteSelected()" disabled>删除选中</button>  
-				</div>  
-			</div>
 			<div class="pagination">
 				<button onclick="previousPage()">上一页</button>
 				<span id="currentPage"> 当前页: 1 / </span><span id="totalPages"> 总页数: 1</span>

@@ -2005,9 +2005,14 @@ func renderAdminPage(w http.ResponseWriter, r *http.Request, data []ApiRequest) 
 					for (j = 0; j < td.length; j++) {
 						td[j].classList.remove("highlight");
 					}
-					tr[i].style.display = "";
 				}
 				if (filter === "") {
+					// 清空搜索时，恢复所有行显示并保持当前分页状态  
+        			for (i = 1; i < tr.length; i++) {  
+            			tr[i].style.display = "";  
+        			}  
+        			// 保持当前页数和每页显示数量，重新应用分页  
+        			updateTablePagination();  
 					return;
 				}
 				for (i = 1; i < tr.length; i++) {
@@ -2023,6 +2028,7 @@ func renderAdminPage(w http.ResponseWriter, r *http.Request, data []ApiRequest) 
 						}
 					}
 				}
+				updateTablePagination();
 			}
 
 			var pageSize = 5;

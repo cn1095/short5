@@ -9,7 +9,7 @@ import (
     "syscall"  
 )
 
-func runAsDaemonUnix() {
+func runAsDaemon() {
     if os.Getppid() != 1 {
         cmd := exec.Command(os.Args[0], os.Args[1:]...)
         cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}

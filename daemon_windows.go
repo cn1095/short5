@@ -3,8 +3,9 @@
 package main
 
 import (  
-    "log"  
-    "os/exec"  
+    "log"
+    "os"
+    "os/exec"
 ) 
 
 func runAsDaemonWindows() {
